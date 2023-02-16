@@ -1,0 +1,5 @@
+gis
+*.RData
+.RProj.user
+.Rhistory
+bigdata

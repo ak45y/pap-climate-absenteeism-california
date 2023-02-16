@@ -1,0 +1,33 @@
+---
+title: "read-data"
+format: html
+editor: visual
+---
+
+# load-packages
+
+```{r}
+library(tidyverse)
+library(data.table)
+```
+
+# Read Data
+
+## Absenteesim - Reasons Data
+
+### Data for 2022
+
+#### Read
+```{r}
+df_absent_22_raw <- fread("https://www3.cde.ca.gov/demo-downloads/attendance/absenteeismreason22-v2.txt", data.table = F)
+names(df_absent_22_raw)
+```
+
+
+## School Lat-Long Data
+
+```{r}
+df_school_geo_raw <- readxl::read_xlsx("./data/pubschls-raw.xlsx",
+                                      skip = 5)
+glimpse(df_school_geo_raw)
+```

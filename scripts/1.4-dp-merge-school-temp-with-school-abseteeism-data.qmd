@@ -1,0 +1,58 @@
+---
+title: "merge-school-temp-with-school-abseteeism-data"
+format: html
+---
+
+# Prepare the school absenteeism data
+```{r}
+df_absent_22_total_data <- df_absent_22_raw %>% 
+  filter(`Aggregate Level` == "S") %>% 
+  filter(`Reporting Category` == "TA") %>% 
+  filter(`Eligible Cumulative Enrollment` != "*") %>% 
+  filter(`School Code` > 10) %>% 
+  dplyr::select(acad_year = `Academic Year`, 
+         county_code = `County Code`, 
+         district_code = `District Code` , 
+         school_code = `School Code` , 
+         county_name = `County Name`, 
+         district_name = `District Name`, 
+         school_name = `School Name`, 
+         reporting_category = `Reporting Category`,
+         eligible_cumulative_enrollment = `Eligible Cumulative Enrollment`, 
+         count_students_any_absence = `Count of Students with One or More Absences`,
+         avg_days_absent = `Average Days Absent`,
+         total_days_absent = `Total Days Absent`,
+         excused_absence_cnt = `Excused Absences (count)`,
+         unexcused_absence_cnt = `Unexcused Absences (count)`) %>% 
+  ## Create a new definition of avg days absent
+  mutate(avg_days_absent_absolute = as.numeric(total_days_absent)/as.numeric(eligible_cumulative_enrollment)) %>% 
+  distinct(county_name, district_name, school_name, .keep_all = T)
+  
+
+View(df_absent_22_total_data)
+```
+
+# Merge with the hotdays data
+```{r}
+df_school_absent_hotdays <- df_absent_22_total_data %>% 
+  inner_join(df_schools_tmax_hotdays, by = "school_code") %>% 
+  dplyr::select("acad_year", "county_code", "district_code",
+         "school_code", "county_name", "district_name",
+         "school_name", "reporting_category", 
+         "lat", "long", "avg_days_absent", "avg_days_absent_absolute", everything())
+View(df_school_absent_hotdays)
+```
+
+# Save Work
+## Save Image
+```{r}
+save.image("./1.4-school-hotdays-absent-merged-all-files.RData")
+```
+
+```{r}
+write.csv(df_school_absent_hotdays, "./output/df_school_absent_hotdays.csv")
+```
+
+
+
+

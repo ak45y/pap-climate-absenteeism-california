@@ -1,0 +1,116 @@
+---
+title: "read-temperature-data-for-California"
+format: html
+editor: visual
+---
+
+# Prepare PSU spdf and India boundary
+
+## Create a points dataframe for the School data
+
+```{r}
+library(sp)
+df_schools_geo_spdf <- SpatialPointsDataFrame(
+  coords = df_school_list_2022_geo_valid[,c("Longitude", "Latitude")],
+  data = df_school_list_2022_geo_valid,
+  proj4string = CRS("+init=epsg:4326"))
+```
+
+## Get California Administrative Boundaries
+
+```{r}
+library(geodata)
+US_adm_1 <- gadm(country = "USA", level = 1, path = ".data/")
+Cali_admin <- US_adm_1[US_adm_1$NAME_1 == "California"]
+plot(Cali_admin)
+```
+
+## Create a buffer around California
+
+```{r}
+# First convert datatype
+class(Cali_admin)
+Cali_admin_sf <- sf::st_as_sf(Cali_admin)
+Cali_admin_spdf <- sf::as_Spatial(Cali_admin_sf)
+# Add Buffer
+library(rgeos)
+Cali_admin_buf <- gBuffer(Cali_admin_spdf, width = 1)
+plot(Cali_admin_buf)
+```
+
+# Merge the School and Temperature datasets for Multiple Years
+
+```{r get-t-max-data-for-all-PSUs}
+library(raster)
+setwd("D:/Arnab/common-datasets/temperature-data/noaa/tmax-2000-2022")
+(a <- list.files(pattern ="/*.nc"))
+# a <- a[c(2)]
+df_tmax_school = NULL
+system.time(
+ for (i in a){
+    rd0 <- brick(i)                       #load the data in raster format
+    #plot(rd0, 1)
+    rd1 <- rotate(rd0)                    #convert the LONG from 0:360 to -180:180 degree 
+    plot(rd1, 1)
+    
+    ## Restrict the spatial data to the country boundary 
+    cd0 <- crop(x = rd1, y = Cali_admin_buf)
+    cd1 <- rasterize(x = Cali_admin_buf, y = cd0)
+    cd2 <- mask(x = cd0, mask = cd1)
+    plot(cd2, 1)
+    
+   # Extract the climate data for each PSU location
+    df1 <- raster::extract(cd2,   # raster layer cropped to the country boundary
+           df_schools_geo_spdf,      # SPDF with centroids for buffer
+           df=TRUE)    # return a dataframe
+    # Add the PSU information
+    df1 <- cbind(df_schools_geo_spdf@data, df1)
+    
+    # Pivot from wide to long
+    df2 <- df1 %>%
+    pivot_longer(
+    cols = starts_with("X"),
+    names_to = "date",
+    values_to = "max_temp",
+    values_drop_na = TRUE) %>% 
+    mutate(date = as.Date(substring(date, 2), format = "%Y.%m.%d"))
+    
+    # bind dataframe to existing data
+    df_tmax_school <- bind_rows(df_tmax_school, df2)
+    
+  }
+)
+View(df_tmax_school)
+dim(df_tmax_school)
+```
+
+# Save you work
+
+## Identify files to delete
+
+```{r}
+ls()
+```
+
+## Delete Unnecessary files
+
+```{r}
+rm(a)
+rm(varlist)
+rm(df_dhs_GE)
+rm(cd0, cd1, cd2, rd0, rd1)
+rm(df_dhs_IR, df_dhs_IR_raw)
+rm(df_dhs_PSU, df_dhs_psu_geo, df_schools_geo_spdf)
+rm(df_dhs_IR_geo, df_dhs_IR_geo_spdf)
+rm(Cali_admin_buf, Cali_admin_sf, Cali_admin_spdf)
+rm(india_temperature_ras_brick, india_temperature_raster, india_temperature_raster2)
+rm(world_temperature_ras_brick, world_temperature_ras_brick_180)
+```
+
+## Save Image
+
+```{r}
+system.time(
+  save.image(file='save-point-2.RData')
+)
+```

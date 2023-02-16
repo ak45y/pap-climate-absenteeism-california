@@ -1,0 +1,81 @@
+---
+title: "merge-school-lat-long"
+format: html
+editor: visual
+---
+
+# load-packages
+
+```{r}
+library(tidyverse)
+```
+
+# Process the school lat-long data
+
+## Get school ID from the School Master
+
+```{r}
+df_school_geo_subset <- df_school_geo_raw %>% 
+  mutate(school_code = as.numeric(substring(CDSCode, 8))) %>% 
+  # select relevant variables only
+  select(school_code, School, StatusType, Street, City, Zip, Latitude, Longitude) %>%  
+  # filter out schools where lat/long data is not available
+  filter(Latitude != "No Data" & Longitude != "No Data") %>%  
+  # Filter cases where School Name is no data
+  filter(School != "No Data")
+
+View(df_school_geo_subset)
+# typeof(df_school_master$CDSCode)
+```
+
+# Process the Absenteeism Dataset
+
+## Create a database of Unique Schools
+
+#### Subset dataset to get data that is aggregated at schools
+
+```{r}
+df_absent_22_subset <- df_absent_22_raw %>% 
+  filter(`Aggregate Level` == "S") %>% 
+  select(county_code = `County Code`, district_code = `District Code` , 
+         school_code = `School Code` , county_name = `County Name`, 
+         district_name = `District Name`, school_name = `School Name`) %>% 
+  distinct(county_name, district_name, school_name, .keep_all = T) %>% 
+  filter(school_code > 10)
+
+dim(df_absent_22_subset)
+View(df_absent_22_subset)
+```
+
+# Merge the School Absenteeism Data and the School Lat Long data
+
+```{r}
+df_absent_22_merged_geo <- df_absent_22_subset %>% 
+  inner_join(df_school_geo_subset, by = "school_code") %>% 
+  mutate(Latitude = as.numeric(Latitude)) %>% 
+  mutate(Longitude = as.numeric(Longitude))  
+View(df_absent_22_merged_geo)
+```
+
+# Check for duplicate school IDs
+
+```{r}
+
+df_duplicate_cases <- df_absent_22_merged_geo %>% 
+  mutate(dup1 = ifelse(duplicated(school_code), 1, 0)) %>% 
+  mutate(dup2 = ifelse(duplicated(school_code, fromLast = T), 1, 0)) %>% 
+  mutate(dup_final = ifelse(dup1 == 1, 1, ifelse(dup2 == 1, 2, 0))) %>% 
+  select(dup1, dup2, dup_final, everything()) %>% 
+  filter(dup_final != 0) %>% 
+  arrange(school_code, dup_final)
+  
+View(df_duplicate_cases)
+```
+
+# Filter cases where status of schools is not Merged or Closed
+
+```{r}
+df_school_list_2022_geo_valid <- df_absent_22_merged_geo %>% 
+  filter(StatusType == "Active")
+dim(df_school_list_2022_geo_valid)
+```

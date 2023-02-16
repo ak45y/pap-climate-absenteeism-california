@@ -1,0 +1,48 @@
+---
+title: "create-extreme-heat-variables"
+format: html
+---
+
+
+```{r}
+df_school_tmax_dv <- df_tmax_school %>% 
+  # create outcome variables
+  ## day where temperature was greater than 35F
+  mutate(hotday_35 = ifelse(max_temp > 35, 1, 0)) %>% 
+  ## Day where the temperature was greater than the 95th percentile for that PSU over the last n years
+  ### First calculate the cutoff temperature for each PSU
+  group_by(school_code) %>% 
+  mutate(cutoff_hot_95 = quantile(max_temp, probs = 0.95, na.rm = T)) %>% 
+  ### Identify days when the temperature was higher than the relative cutoff
+  mutate(hotday_95 = ifelse(max_temp >=  cutoff_hot_95, 1, 0)) %>% 
+  ## Identify days when it was either more than 35 or more than 95
+  mutate(hotday_35_95 = ifelse(hotday_35 == 1 | hotday_95 == 1, 1, 0)) %>% 
+  ## Identify days when it was both 
+  mutate(hotday_both = ifelse(hotday_35 == 1 & hotday_95 == 1, 1, 0)) %>% 
+  # extract year from the date variable
+  mutate(year = format(as.Date(date), format = "%Y")) 
+```
+
+
+# filter dates for academic year of 2021-2022
+```{r}
+df_school_tmax_dv_22 <- df_school_tmax_dv %>% 
+  filter(date > as.Date("2021-08-16") & date < as.Date("2022-06-10"))
+```
+
+
+```{r}
+df_schools_tmax_hotdays <- df_school_tmax_dv_22 %>% 
+  group_by(school_code) %>% 
+  summarize(avg_max_temp = mean(max_temp),
+            num_hot_day_35 = sum(hotday_35),
+            num_hot_day_95 = sum(hotday_95),
+            num_hot_day_35_95 = sum(hotday_35_95),
+            num_hot_day_both = sum(hotday_both),
+            lat = first(Latitude), 
+            long = first(Longitude))
+
+View(df_schools_tmax_hotdays)
+```
+
+
