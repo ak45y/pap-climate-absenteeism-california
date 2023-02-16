@@ -46,7 +46,7 @@ View(df_school_absent_hotdays)
 # Save Work
 ## Save Image
 ```{r}
-save.image("./1.4-school-hotdays-absent-merged-all-files.RData")
+save.image("./bigdata/1.4-school-hotdays-absent-merged-all-files.RData")
 ```
 
 ```{r}
